@@ -1,0 +1,4 @@
+1. The RAVDESS is released under a Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License, CC BY-NC-SA 4.0
+2. The Toronto emotional speech set (TESS) Collection is published under Creative Commons license Attribution-NonCommercial-NoDerivatives 4.0 International.
+3. Twitter data are subject to Twitter's Developer Policy. Tweet IDs and User IDs are redistributed under the permissions outlined at https://developer.twitter.com/en/developer-terms/policy#4-e for academic researchers.
+4. All other materials including the program and associated documentation files are released under Attribution-NonCommercial-NoDerivatives 4.0 International (CC BY-NC-ND 4.0).
