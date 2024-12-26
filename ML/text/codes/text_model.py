@@ -1,156 +1,139 @@
 import numpy as np
 import pandas as pd
-from transformers import BertTokenizer, TFBertModel
-import tensorflow as tf
-from tensorflow.keras.layers import *
-from tensorflow.keras.models import Model
+import os
+os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
+import torch
+from transformers import BertTokenizer, BertModel
+from torch.utils.data import DataLoader, Dataset
+import torch.nn as nn
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelBinarizer
-import random as python_random
+import random
 
+# Set random seeds
 np.random.seed(1234)
-tf.random.set_seed(1234)
+torch.manual_seed(1234)
 
 """# Import and split training data"""
-df = pd.read_csv("./FED_classification.csv", sep='\t')
-df['cat']=df['sentiment'].apply(lambda x: 2 if x=='dovish' else (0 if x=='hawkish' else 1))
+df = pd.read_csv("ML/text/data/FED_classification.csv", sep='\t')
+df['cat'] = df['sentiment'].apply(lambda x: 2 if x == 'dovish' else (0 if x == 'hawkish' else 1))  # categorize sentiment
 
-# create balanced sample
-hawkish = df[df['sentiment']=='hawkish']
-dovish = df[df['sentiment']=='dovish']
-neutral = df[df['sentiment']=='neutral']
-dovish_downsampled = dovish.sample(hawkish.shape[0])
-neutral_downsampled = neutral.sample(hawkish.shape[0])
-df_balanced = pd.concat([dovish_downsampled,neutral_downsampled,hawkish])
+# Create balanced sample
+hawkish = df[df['sentiment'] == 'hawkish']
+dovish = df[df['sentiment'] == 'dovish']
+neutral = df[df['sentiment'] == 'neutral']
+dovish_downsampled = dovish.sample(hawkish.shape[0], random_state=1234)
+neutral_downsampled = neutral.sample(hawkish.shape[0], random_state=1234)
+df_balanced = pd.concat([dovish_downsampled, neutral_downsampled, hawkish])
 
-train, remain = train_test_split(df_balanced, stratify=df_balanced['cat'], train_size=0.8)
-test, val = train_test_split(remain, stratify=remain['cat'], train_size=0.5)
+train, remain = train_test_split(df_balanced, stratify=df_balanced['cat'], train_size=0.8, random_state=1234)
+test, val = train_test_split(remain, stratify=remain['cat'], train_size=0.5, random_state=1234)
 
+"""# Pre-processing data"""
+# Initialize tokenizer
+BERT_PATH = "C:\\Users\\Hu\\.cache\\huggingface\\hub\\bert-base-uncased"
+tokenizer = BertTokenizer.from_pretrained(BERT_PATH)
 
-"""# Pre-processing data
-**Tokenize and store results in arrays to add in dataset later***
-"""
-# initialize tokenizer
-tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-bert = TFBertModel.from_pretrained('bert-base-uncased')
+class TextDataset(Dataset):
+    def __init__(self, data, tokenizer, max_length=512):
+        self.data = data
+        self.tokenizer = tokenizer
+        self.max_length = max_length
 
-def tokenize(data):
-    seq_len = 512
-    num_samples = len(data)
+    def __len__(self):
+        return len(self.data)
 
-    # initialize empty zero arrays
-    Xids = np.zeros((num_samples, seq_len))
-    Xmask = np.zeros((num_samples, seq_len)) 
+    def __getitem__(self, idx):
+        row = self.data.iloc[idx]
+        text = row['text']
+        label = row['cat']
+        tokens = self.tokenizer(text, max_length=self.max_length, truncation=True, padding='max_length', return_tensors='pt')
+        input_ids = tokens['input_ids'].squeeze(0)
+        attention_mask = tokens['attention_mask'].squeeze(0)
+        return input_ids, attention_mask, label
 
-    for i, sentence in enumerate(data['text']):
-        tokens = tokenizer.encode_plus(sentence, max_length=seq_len, truncation=True,
-                                       padding='max_length', add_special_tokens=True,
-                                       return_tensors='tf')
-        # assign tokenized outputs to respective rows in numpy arrays
-        Xids[i, :] = tokens['input_ids']
-        Xmask[i, :] = tokens['attention_mask']
-    # check shape
-    print(Xids.shape)
-    return Xids, Xmask
+train_dataset = TextDataset(train, tokenizer)
+val_dataset = TextDataset(val, tokenizer)
+test_dataset = TextDataset(test, tokenizer)
 
-Xids_train, Xmask_train = tokenize(train)
-Xids_val, Xmask_val = tokenize(val)
+train_loader = DataLoader(train_dataset, batch_size=10, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=10, shuffle=False)
 
-# This tokenize function is to process testing data later
-def prep_data(text):
-    tokens = tokenizer.encode_plus(text, max_length=512, truncation=True,
-                                   padding='max_length', add_special_tokens=True,
-                                   return_token_type_ids=False,
-                                   return_tensors='tf')
-    # tokenizer returns int32 tensors, we need to return float64, so we use tf.cast
-    return {'input_ids': tf.cast(tokens['input_ids'], tf.float64),
-            'attention_mask': tf.cast(tokens['attention_mask'], tf.float64)}
+"""# Build Model"""
+class BertClassifier(nn.Module):
+    def __init__(self):
+        super(BertClassifier, self).__init__()
+        self.bert = BertModel.from_pretrained('bert-base-uncased')
+        self.lstm = nn.LSTM(768, 512, bidirectional=True, batch_first=True, dropout=0.1)
+        self.global_avg_pool = nn.AdaptiveAvgPool1d(1)
+        self.fc1 = nn.Linear(1024, 512)
+        self.fc2 = nn.Linear(512, 128)
+        self.fc3 = nn.Linear(128, 3)
+        self.dropout = nn.Dropout(0.1)
 
-# One-hot encoding the sentiment
-labels_train = LabelBinarizer().fit_transform(train.cat)
-labels_val = LabelBinarizer().fit_transform(val.cat)
+    def forward(self, input_ids, attention_mask):
+        with torch.no_grad():
+            outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
+        hidden_states = outputs.last_hidden_state
+        lstm_out, _ = self.lstm(hidden_states)
+        pooled = self.global_avg_pool(lstm_out.transpose(1, 2)).squeeze(-1)
+        x = self.dropout(torch.relu(self.fc1(pooled)))
+        x = self.dropout(torch.relu(self.fc2(x)))
+        x = self.fc3(x)
+        return x
 
-"""
-Build 2 tf.data.Dataset objects (train & test) using tokenized outputs and label tensors.
-Then transform into the correct format for keras input layers
-"""
+model = BertClassifier()
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model.to(device)
 
-dataset_train = tf.data.Dataset.from_tensor_slices((Xids_train, Xmask_train, labels_train))
-dataset_val = tf.data.Dataset.from_tensor_slices((Xids_val, Xmask_val, labels_val))
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-def map_func(input_ids, masks, labels):
-    # convert our three-item tuple into a two-item tuple where the input item is a dictionary
-    return {'input_ids': input_ids, 'attention_mask': masks}, labels
+"""# Train Model"""
+def train_model(model, train_loader, val_loader, criterion, optimizer, epochs=10):
+    for epoch in range(epochs):
+        model.train()
+        total_loss = 0
+        correct = 0
+        for input_ids, attention_mask, labels in train_loader:
+            input_ids, attention_mask, labels = input_ids.to(device), attention_mask.to(device), labels.to(device)
 
-dataset_train = dataset_train.map(map_func)
-dataset_val = dataset_val.map(map_func)
+            optimizer.zero_grad()
+            outputs = model(input_ids, attention_mask)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
 
-"""**Batch and shuffle data**"""
-# we will split into batches of 10
-batch_size = 10
+            total_loss += loss.item()
+            correct += (outputs.argmax(1) == labels).sum().item()
 
-# shuffle and batch
-train_ds = dataset_train.shuffle(100).batch(batch_size, drop_remainder=False)
-val_ds = dataset_val.shuffle(100).batch(batch_size, drop_remainder=False)
+        accuracy = correct / len(train_loader.dataset)
+        print(f"Epoch {epoch + 1}/{epochs}, Loss: {total_loss:.4f}, Accuracy: {accuracy:.4f}")
 
-"""# Build and Train"""
+        model.eval()
+        val_correct = 0
+        with torch.no_grad():
+            for input_ids, attention_mask, labels in val_loader:
+                input_ids, attention_mask, labels = input_ids.to(device), attention_mask.to(device), labels.to(device)
+                outputs = model(input_ids, attention_mask)
+                val_correct += (outputs.argmax(1) == labels).sum().item()
+        val_accuracy = val_correct / len(val_loader.dataset)
+        print(f"Validation Accuracy: {val_accuracy:.4f}")
 
-"""
-    Build a network of which input is the output from BERT
+train_model(model, train_loader, val_loader, criterion, optimizer, epochs=10)
 
-"""
+"""# Test Model"""
+model.eval()
+y_true = []
+y_pred = []
 
-# two input layers for BERT
-input_ids = Input(shape=(512,), name='input_ids', dtype='int32')
-mask = Input(shape=(512,), name='attention_mask', dtype='int32')
+with torch.no_grad():
+    for input_ids, attention_mask, labels in DataLoader(test_dataset, batch_size=10):
+        input_ids, attention_mask, labels = input_ids.to(device), attention_mask.to(device), labels.to(device)
+        outputs = model(input_ids, attention_mask)
+        preds = outputs.argmax(1)
+        y_true.extend(labels.cpu().numpy())
+        y_pred.extend(preds.cpu().numpy())
 
-# BERT output layer (use the last hidden state instead of pooler output), use [1] for the pooler output
-embeddings = bert.bert(input_ids, attention_mask=mask)[0]
-
-# use BERT outut as input for the next layers
-net = Bidirectional(LSTM(512, return_sequences=True, dropout=0.1, recurrent_dropout=0.1))(embeddings)
-net = Dropout(0.1)(net)
-net = GlobalAveragePooling1D()(net)
-net = Dropout(0.1)(net)
-net = Dense(512, activation='relu')(net)
-net = Dropout(0.1)(net)
-net = Dense(128, activation='relu')(net)
-out = Dense(3, activation='softmax', name='outputs')(net)
-
-"""
-    Initialize model and train
-"""
-model = Model(inputs=[input_ids, mask], outputs=out)
-model.layers[2].trainable = False
-
-model_path='PATH TO FOLDER TO SAVE THE TRAINED MODEL'
-optimizer = tf.keras.optimizers.Adam()
-loss = tf.keras.losses.CategoricalCrossentropy()
-acc = tf.keras.metrics.CategoricalAccuracy('accuracy')
-precision = tf.keras.metrics.Precision()
-recall = tf.keras.metrics.Recall()
-
-model.compile(optimizer=optimizer,
-              loss=loss,
-              metrics=[acc, precision, recall])
-model_training = model.fit(train_ds,
-                           validation_data = val_ds,
-                           epochs=200)
-
-model.save(model_path+'text_model', save_format='tf')
-
-"""
-    Testing
-"""
-test['pred'] = None
-for i, row in test.iterrows():
-    tokens = prep_data(row['text'])
-    probs = model.predict(tokens)
-    pred = np.argmax(probs)
-    test.at[i, 'pred'] = pred
-
-print(classification_report(test.cat.tolist(), test.pred.tolist()))
-
-
-
+print(classification_report(y_true, y_pred))
