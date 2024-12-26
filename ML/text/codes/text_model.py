@@ -1,7 +1,5 @@
 import numpy as np
 import pandas as pd
-import os
-os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 import torch
 from transformers import BertTokenizer, BertModel
 from torch.utils.data import DataLoader, Dataset
@@ -32,8 +30,7 @@ test, val = train_test_split(remain, stratify=remain['cat'], train_size=0.5, ran
 
 """# Pre-processing data"""
 # Initialize tokenizer
-BERT_PATH = "C:\\Users\\Hu\\.cache\\huggingface\\hub\\bert-base-uncased"
-tokenizer = BertTokenizer.from_pretrained(BERT_PATH)
+tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
 class TextDataset(Dataset):
     def __init__(self, data, tokenizer, max_length=512):
