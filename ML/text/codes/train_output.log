@@ -1,0 +1,45 @@
+nohup: ignoring input
+2024-12-29 16:19:08.078999: I tensorflow/core/platform/cpu_feature_guard.cc:193] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  AVX2 AVX512F AVX512_VNNI FMA
+To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2024-12-29 16:19:08.251295: I tensorflow/core/util/util.cc:169] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2024-12-29 16:19:08.294013: E tensorflow/stream_executor/cuda/cuda_blas.cc:2981] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2024-12-29 16:19:08.993913: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libnvinfer.so.7'; dlerror: libnvinfer.so.7: cannot open shared object file: No such file or directory
+2024-12-29 16:19:08.994060: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libnvinfer_plugin.so.7'; dlerror: libnvinfer_plugin.so.7: cannot open shared object file: No such file or directory
+2024-12-29 16:19:08.994069: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Cannot dlopen some TensorRT libraries. If you would like to use Nvidia GPU with TensorRT, please make sure the missing libraries mentioned above are installed properly.
+/root/miniconda3/envs/voice/lib/python3.8/site-packages/huggingface_hub/file_download.py:795: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+Some weights of the model checkpoint at bert-base-uncased were not used when initializing BertModel: ['cls.predictions.bias', 'cls.predictions.transform.dense.bias', 'cls.predictions.transform.LayerNorm.weight', 'cls.seq_relationship.weight', 'cls.seq_relationship.bias', 'cls.predictions.transform.LayerNorm.bias', 'cls.predictions.transform.dense.weight']
+- This IS expected if you are initializing BertModel from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing BertModel from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).
+/root/miniconda3/envs/voice/lib/python3.8/site-packages/torch/nn/modules/rnn.py:62: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  warnings.warn("dropout option adds dropout after all but last "
+Epoch 1/10, Loss: 64.2684, Accuracy: 0.4117
+Validation Accuracy: 0.6027
+Epoch 2/10, Loss: 58.0105, Accuracy: 0.5214
+Validation Accuracy: 0.6027
+Epoch 3/10, Loss: 51.0477, Accuracy: 0.6021
+Validation Accuracy: 0.7123
+Epoch 4/10, Loss: 44.3701, Accuracy: 0.6672
+Validation Accuracy: 0.6986
+Epoch 5/10, Loss: 41.9859, Accuracy: 0.7050
+Validation Accuracy: 0.6849
+Epoch 6/10, Loss: 39.9806, Accuracy: 0.7136
+Validation Accuracy: 0.6712
+Epoch 7/10, Loss: 35.0681, Accuracy: 0.7410
+Validation Accuracy: 0.7808
+Epoch 8/10, Loss: 33.2072, Accuracy: 0.7753
+Validation Accuracy: 0.7671
+Epoch 9/10, Loss: 30.9857, Accuracy: 0.7993
+Validation Accuracy: 0.6301
+Epoch 10/10, Loss: 31.5512, Accuracy: 0.7650
+Validation Accuracy: 0.7671
+              precision    recall  f1-score   support
+
+           0       0.80      0.67      0.73        24
+           1       0.72      0.72      0.72        25
+           2       0.68      0.79      0.73        24
+
+    accuracy                           0.73        73
+   macro avg       0.73      0.73      0.73        73
+weighted avg       0.73      0.73      0.73        73
+

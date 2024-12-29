@@ -69,8 +69,8 @@ The codes below are to build such network.
 The codes can be modified to build networks with different structures/layers
 '''
 
-infile = 'C:\\Users\\Hu\\Desktop\\Replicate\\ML\\voice\\feature_file.csv' #'PATH TO THE CSV FILE CONTAINING EXRACTED FEATURES OF TRAINING AUDIO FILES'
-model_path = 'C:\\Users\\Hu\\Desktop\\Replicate\\ML\\voice\\codes\\' #'PATH TO FOLDER TO SAVE TRAINED MODELS'
+infile = 'ML/voice/feature_file.csv' #'PATH TO THE CSV FILE CONTAINING EXRACTED FEATURES OF TRAINING AUDIO FILES'
+model_path = 'ML/voice/codes/' #'PATH TO FOLDER TO SAVE TRAINED MODELS'
 
 # specify the list of emotions 
 emotions = ['neutral', 'calm', 'happy', 'sad', 'angry', 'fearful', 'disgust', 'surprised']
