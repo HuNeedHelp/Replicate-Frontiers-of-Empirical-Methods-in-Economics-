@@ -62,7 +62,7 @@ class BertClassifier(nn.Module):
     def __init__(self):
         super(BertClassifier, self).__init__()
         self.bert = BertModel.from_pretrained('bert-base-uncased')
-        self.lstm = nn.LSTM(768, 512, bidirectional=True, batch_first=True, dropout=0.1)
+        self.lstm = nn.LSTM(768, 512, bidirectional=True, batch_first=True, dropout=0.1)    ## 一个双向LSTM
         self.global_avg_pool = nn.AdaptiveAvgPool1d(1)
         self.fc1 = nn.Linear(1024, 512)
         self.fc2 = nn.Linear(512, 128)
@@ -72,9 +72,9 @@ class BertClassifier(nn.Module):
     def forward(self, input_ids, attention_mask):
         with torch.no_grad():
             outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
-        hidden_states = outputs.last_hidden_state
+        hidden_states = outputs.last_hidden_state       ## shape: (batch_size, seq_len, hidden_size=768)
         lstm_out, _ = self.lstm(hidden_states)
-        pooled = self.global_avg_pool(lstm_out.transpose(1, 2)).squeeze(-1)
+        pooled = self.global_avg_pool(lstm_out.transpose(1, 2)).squeeze(-1) ## 因为一个句子最后输出是一行，转置把最后一个维度squeeze掉，shape: (batch, d_model)，输到线性层当中 
         x = self.dropout(torch.relu(self.fc1(pooled)))
         x = self.dropout(torch.relu(self.fc2(x)))
         x = self.fc3(x)
@@ -117,6 +117,8 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, epochs=10
                 val_correct += (outputs.argmax(1) == labels).sum().item()
         val_accuracy = val_correct / len(val_loader.dataset)
         print(f"Validation Accuracy: {val_accuracy:.4f}")
+    
+    torch.save(model.state_dict(), "ML/text/codes/model_weights.pth")
 
 train_model(model, train_loader, val_loader, criterion, optimizer, epochs=10)
 
